@@ -1,0 +1,42 @@
+FROM nvidia/cuda:11.4.3-cudnn8-devel-ubuntu20.04 AS builder
+
+# Install build dependencies
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    cmake \
+    gcc \
+    g++ \
+    git \
+    golang-go \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install newer Go version
+RUN curl -L https://go.dev/dl/go1.22.0.linux-amd64.tar.gz | tar -C /usr/local -xz
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build with CUDA support
+ENV CGO_ENABLED=1
+ENV CUDA_DOCKER_ARCH=all
+RUN go mod download
+RUN go generate ./...
+RUN go build -o ollama .
+
+# Runtime stage
+FROM nvidia/cuda:11.4.3-cudnn8-runtime-ubuntu20.04
+
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/ollama /bin/ollama
+
+EXPOSE 11434
+ENV OLLAMA_HOST=0.0.0.0
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+ENTRYPOINT ["/bin/ollama"]
+CMD ["serve"]

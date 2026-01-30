@@ -1,0 +1,35 @@
+FROM golang:1.22-bullseye AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    cmake \
+    gcc \
+    g++ \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Generate required files
+ENV CGO_ENABLED=1
+RUN go mod download
+RUN go generate ./...
+
+# Build the application
+RUN go build -o ollama .
+
+# Runtime stage
+FROM ubuntu:22.04
+
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/ollama /bin/ollama
+
+EXPOSE 11434
+ENV OLLAMA_HOST=0.0.0.0
+
+ENTRYPOINT ["/bin/ollama"]
+CMD ["serve"]
