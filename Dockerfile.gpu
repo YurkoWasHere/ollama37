@@ -2,17 +2,25 @@ FROM nvidia/cuda:11.4.3-cudnn8-devel-ubuntu20.04 AS builder
 
 # Install build dependencies
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
-    cmake \
     gcc \
     g++ \
     git \
     golang-go \
     curl \
+    wget \
+    build-essential \
+    libssl-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Install newer CMake version (3.22+)
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-linux-x86_64.sh && \
+    chmod +x cmake-3.22.1-linux-x86_64.sh && \
+    ./cmake-3.22.1-linux-x86_64.sh --skip-license --prefix=/usr/local && \
+    rm cmake-3.22.1-linux-x86_64.sh
 
 # Install newer Go version
 RUN curl -L https://go.dev/dl/go1.22.0.linux-amd64.tar.gz | tar -C /usr/local -xz
-ENV PATH="/usr/local/go/bin:${PATH}"
+ENV PATH="/usr/local/go/bin:/usr/local/bin:${PATH}"
 
 WORKDIR /app
 
